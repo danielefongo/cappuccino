@@ -1,39 +1,36 @@
-use setup::setup;
+setup::tests!({
+    when "empty" {}
 
-mod external {
-    pub fn hello() -> String {
-        "Hello".to_string()
+    when "has space in description" {}
+
+    when "has single it" {
+        it "should pass" {
+            assert_eq!(1, 1);
+        }
     }
-}
 
-fn before() -> i32 {
-    1
-}
+    when "has multiple it" {
+        it "should pass 1" {
+            assert_eq!(1, 1);
+        }
+        it "should pass 2" {
+            assert_eq!(1, 1);
+        }
+    }
 
-fn complex_before() -> (i32, i32) {
-    (1, 1)
-}
+    when "has inner when" {
+        when "and has an it" {
+            it "should pass" {
+                assert_eq!(1, 1);
+            }
+        }
+    }
 
-#[setup]
-#[test]
-fn use_default_setup(data: i32) {
-    assert_eq!(data, 1)
-}
+    when "has hybrid when and it" {
+        when "empty" {}
 
-#[setup(before)]
-#[test]
-fn use_simple_setup(data: i32) {
-    assert_eq!(data, 1)
-}
-
-#[setup(complex_before)]
-#[test]
-fn use_complex_setup((a, b): (i32, i32)) {
-    assert_eq!(a, b)
-}
-
-#[setup(external::hello)]
-#[test]
-fn use_external_setup(hello: String) {
-    assert_eq!(hello, "Hello".to_string())
-}
+        it "should pass" {
+            assert_eq!(1, 1);
+        }
+    }
+});
