@@ -16,8 +16,8 @@ impl Parse for Case {
         let kind: Ident = forked_input.parse()?;
 
         match kind.to_string().as_str() {
-            "it" => Ok(Case::It(It::parse(input).unwrap())),
-            "when" => Ok(Case::When(When::parse(input).unwrap())),
+            "it" => Ok(Case::It(It::parse(input)?)),
+            "when" => Ok(Case::When(When::parse(input)?)),
             _ => Err(lookahead.error()),
         }
     }
@@ -38,7 +38,7 @@ pub struct When {
 
 impl Parse for When {
     fn parse(input: ParseStream) -> Result<Self> {
-        let block = StringedBlock::parse(input).unwrap();
+        let block = StringedBlock::parse(input)?;
         Ok(When { block })
     }
 }
@@ -64,7 +64,7 @@ pub struct It {
 
 impl Parse for It {
     fn parse(input: ParseStream) -> Result<Self> {
-        let block = StringedBlock::parse(input).unwrap();
+        let block = StringedBlock::parse(input)?;
         Ok(It { block })
     }
 }
