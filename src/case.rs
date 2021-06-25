@@ -1,10 +1,11 @@
-use crate::stringed_box::StringedBlock;
+use crate::utils::{DynamicBlock, OptionalArg, StringedIdent};
 use quote::ToTokens;
 use quote::TokenStreamExt;
 use syn::parse::{Parse, ParseStream, Result};
 use syn::parse_quote;
+use syn::token::Mod;
 use syn::Type;
-use syn::{token, Block, Ident, Item, ItemFn, Stmt};
+use syn::{Block, Ident, Item, ItemFn, Stmt};
 
 #[derive(Clone)]
 pub enum Case {
@@ -48,61 +49,65 @@ impl ToTokens for Case {
 
 #[derive(Clone)]
 pub struct When {
-    pub block: StringedBlock<Case>,
+    pub block: DynamicBlock<Case>,
+    pub ident: StringedIdent,
 }
 
 impl Parse for When {
     fn parse(input: ParseStream) -> Result<Self> {
-        let block = StringedBlock::parse(input)?;
-        Ok(When { block })
+        let ident = input.parse()?;
+        let block = input.parse()?;
+        Ok(When { ident, block })
     }
 }
 
 impl ToTokens for When {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let magic = self.block.clone();
+        let block = &self.block;
 
-        let has_setup = contains_setup(&magic.items);
+        Mod::default().to_tokens(tokens);
+        self.ident.to_tokens(tokens);
 
-        token::Mod::default().to_tokens(tokens);
-        magic.ident.to_tokens(tokens);
-
-        &magic.brace_token.surround(tokens, |tokens| {
-            if !has_setup {
+        &block.brace_token.surround(tokens, |tokens| {
+            if !contains_setup(&block.items) {
                 let use_stmt: Stmt = parse_quote!(
                     use super::before;
                 );
                 use_stmt.to_tokens(tokens);
             }
-            tokens.append_all(&magic.items);
+            tokens.append_all(&block.items);
         });
     }
 }
 
 #[derive(Clone)]
 pub struct It {
-    pub block: StringedBlock<Stmt>,
+    pub ident: StringedIdent,
+    pub block: DynamicBlock<Stmt>,
+    pub arg: OptionalArg,
 }
 
 impl Parse for It {
     fn parse(input: ParseStream) -> Result<Self> {
-        let block = StringedBlock::parse(input)?;
-        Ok(It { block })
+        let ident = input.parse()?;
+        let arg = input.parse()?;
+        let block = input.parse()?;
+        Ok(It { ident, arg, block })
     }
 }
 
 impl ToTokens for It {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let magic = &self.block;
+        let block = &self.block;
 
-        let ident = magic.ident.clone();
-        let arg = magic.arg.clone();
+        let ident = self.ident.clone();
+        let arg = self.arg.clone();
         let block = Block {
-            brace_token: magic.brace_token,
-            stmts: magic.items.clone(),
+            brace_token: block.brace_token,
+            stmts: block.items.clone(),
         };
 
-        let test_body: Block = if let Some(_) = arg {
+        let test_body: Block = if arg.is_set() {
             syn::parse_quote!({
               let runner = |#arg| #block;
               runner(before())

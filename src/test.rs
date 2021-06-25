@@ -1,54 +1,36 @@
 use quote::ToTokens;
 use quote::TokenStreamExt;
 use syn::parse::{Parse, ParseStream, Result};
-use syn::{braced, token, Ident};
+use syn::token::Mod;
+use syn::Ident;
 
 use crate::case::contains_setup;
 use crate::case::Case;
 use crate::case::Setup;
+use crate::utils::DynamicBlock;
 
-pub struct Test {
-    pub brace_token: token::Brace,
-    pub items: Vec<Case>,
-}
-
-impl Test {
-    fn new(brace_token: token::Brace, items: Vec<Case>) -> Test {
-        Test { brace_token, items }
-    }
-}
+pub struct Test(DynamicBlock<Case>);
 
 impl Parse for Test {
     fn parse(input: ParseStream) -> Result<Self> {
-        let lookahead = input.lookahead1();
-        if lookahead.peek(token::Brace) {
-            let content;
-            let brace_token = braced!(content in input);
-
-            let mut items = Vec::new();
-            while !content.is_empty() {
-                items.push(content.parse()?);
-            }
-
-            Ok(Test::new(brace_token, items))
-        } else {
-            Err(lookahead.error())
-        }
+        let block = input.parse()?;
+        Ok(Test(block))
     }
 }
 
 impl ToTokens for Test {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        token::Mod::default().to_tokens(tokens);
+        let block = &self.0;
+        Mod::default().to_tokens(tokens);
 
-        let tests_ident: Ident = syn::parse_quote! { tests };
+        let tests_ident: Ident = syn::parse_quote!(tests);
         tests_ident.to_tokens(tokens);
 
-        &self.brace_token.surround(tokens, |tokens| {
-            if !contains_setup(&self.items) {
+        &block.brace_token.surround(tokens, |tokens| {
+            if !contains_setup(&block.items) {
                 Setup::default().to_tokens(tokens);
             }
-            tokens.append_all(&self.items);
+            tokens.append_all(&block.items);
         });
     }
 }

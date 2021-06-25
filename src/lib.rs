@@ -1,8 +1,8 @@
 extern crate proc_macro;
 
 mod case;
-mod stringed_box;
 mod test;
+mod utils;
 
 use proc_macro::TokenStream;
 use quote::ToTokens;
