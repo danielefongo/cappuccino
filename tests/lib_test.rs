@@ -64,7 +64,7 @@ setup::tests!({
                 24
             }
 
-            it "should use super setup" |a: i32| {
+            it "should use inner setup" |a: i32| {
                 assert_eq!(a, 24);
             }
         }
