@@ -33,4 +33,12 @@ setup::tests!({
             assert_eq!(1, 1);
         }
     }
+
+    before i32 {
+        42
+    }
+
+    it "should pass using setup" |a: i32| {
+        assert_eq!(a, 42);
+    }
 });

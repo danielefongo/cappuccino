@@ -2,11 +2,13 @@ use crate::stringed_box::StringedBlock;
 use quote::ToTokens;
 use quote::TokenStreamExt;
 use syn::parse::{Parse, ParseStream, Result};
+use syn::Type;
 use syn::{token, Block, Ident, ItemFn, Stmt};
 
 pub enum Case {
     It(It),
     When(When),
+    Setup(Setup),
 }
 
 impl Parse for Case {
@@ -18,6 +20,7 @@ impl Parse for Case {
         match kind.to_string().as_str() {
             "it" => Ok(Case::It(It::parse(input)?)),
             "when" => Ok(Case::When(When::parse(input)?)),
+            "before" => Ok(Case::Setup(Setup::parse(input)?)),
             _ => Err(lookahead.error()),
         }
     }
@@ -28,6 +31,7 @@ impl ToTokens for Case {
         match &self {
             Case::It(it) => it.to_tokens(tokens),
             Case::When(when) => when.to_tokens(tokens),
+            Case::Setup(fun) => fun.to_tokens(tokens),
         }
     }
 }
@@ -74,17 +78,58 @@ impl ToTokens for It {
         let magic = &self.block;
 
         let ident = magic.ident.clone();
+        let arg = magic.arg.clone();
         let block = Block {
             brace_token: magic.brace_token,
             stmts: magic.items.clone(),
         };
 
-        let my_test: ItemFn = syn::parse_quote! {
+        let test_body: Block = if let Some(_) = arg {
+            syn::parse_quote!({
+              let runner = |#arg| #block;
+              runner(setup())
+            })
+        } else {
+            syn::parse_quote!(#block)
+        };
+
+        let test: ItemFn = syn::parse_quote! {
             #[test]
             fn #ident() {
+                #test_body
+            }
+        };
+        test.to_tokens(tokens);
+    }
+}
+
+pub struct Setup {
+    pub block: Block,
+    pub output: Box<Type>,
+}
+
+impl Parse for Setup {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let _: Ident = input.parse()?;
+        let output: Type = input.parse()?;
+        let block: Block = input.parse()?;
+        Ok(Setup {
+            output: Box::new(output),
+            block,
+        })
+    }
+}
+
+impl ToTokens for Setup {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let output = &self.output.clone();
+        let block = &self.block.clone();
+
+        let my_setup: ItemFn = syn::parse_quote! {
+            fn setup() -> #output {
                 #block
             }
         };
-        my_test.to_tokens(tokens);
+        my_setup.to_tokens(tokens);
     }
 }
