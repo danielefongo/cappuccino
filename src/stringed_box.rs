@@ -1,8 +1,9 @@
 use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream, Result};
-use syn::token::{Brace};
+use syn::token::Brace;
 use syn::{braced, FnArg, Ident, LitStr, Token};
 
+#[derive(Clone)]
 pub struct StringedBlock<T: Parse> {
     pub kind: Ident,
     pub ident: Ident,

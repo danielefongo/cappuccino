@@ -3,25 +3,33 @@ use quote::ToTokens;
 use quote::TokenStreamExt;
 use syn::parse::{Parse, ParseStream, Result};
 use syn::Type;
-use syn::{token, Block, Ident, ItemFn, Stmt};
+use syn::{token, Block, Ident, Item, ItemFn, Stmt};
 
+#[derive(Clone)]
 pub enum Case {
     It(It),
     When(When),
     Setup(Setup),
+    Item(Item),
 }
 
 impl Parse for Case {
     fn parse(input: ParseStream) -> Result<Self> {
         let forked_input = input.fork();
         let lookahead = input.lookahead1();
-        let kind: Ident = forked_input.parse()?;
 
-        match kind.to_string().as_str() {
-            "it" => Ok(Case::It(It::parse(input)?)),
-            "when" => Ok(Case::When(When::parse(input)?)),
-            "before" => Ok(Case::Setup(Setup::parse(input)?)),
-            _ => Err(lookahead.error()),
+        if lookahead.peek(Ident) {
+            let kind: Ident = forked_input.parse()?;
+
+            match kind.to_string().as_str() {
+                "it" => Ok(Case::It(It::parse(input)?)),
+                "when" => Ok(Case::When(When::parse(input)?)),
+                "before" => Ok(Case::Setup(Setup::parse(input)?)),
+                _ => Err(lookahead.error()),
+            }
+        } else {
+            let item: Item = input.parse()?;
+            Ok(Case::Item(item))
         }
     }
 }
@@ -32,10 +40,12 @@ impl ToTokens for Case {
             Case::It(it) => it.to_tokens(tokens),
             Case::When(when) => when.to_tokens(tokens),
             Case::Setup(fun) => fun.to_tokens(tokens),
+            Case::Item(item) => item.to_tokens(tokens),
         }
     }
 }
 
+#[derive(Clone)]
 pub struct When {
     pub block: StringedBlock<Case>,
 }
@@ -49,19 +59,18 @@ impl Parse for When {
 
 impl ToTokens for When {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let magic = &self.block;
+        let magic = self.block.clone();
 
         token::Mod::default().to_tokens(tokens);
         magic.ident.to_tokens(tokens);
 
         &magic.brace_token.surround(tokens, |tokens| {
-            // let use_stmt: Stmt = syn::parse_quote! { use setup::describe; };
-            // use_stmt.to_tokens(tokens);
             tokens.append_all(&magic.items);
         });
     }
 }
 
+#[derive(Clone)]
 pub struct It {
     pub block: StringedBlock<Stmt>,
 }
@@ -102,6 +111,8 @@ impl ToTokens for It {
         test.to_tokens(tokens);
     }
 }
+
+#[derive(Clone)]
 
 pub struct Setup {
     pub block: Block,
