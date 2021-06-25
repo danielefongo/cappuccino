@@ -3,7 +3,9 @@ use quote::TokenStreamExt;
 use syn::parse::{Parse, ParseStream, Result};
 use syn::{braced, token, Ident};
 
+use crate::case::contains_setup;
 use crate::case::Case;
+use crate::case::Setup;
 
 pub struct Test {
     pub brace_token: token::Brace,
@@ -43,8 +45,9 @@ impl ToTokens for Test {
         tests_ident.to_tokens(tokens);
 
         &self.brace_token.surround(tokens, |tokens| {
-            // let use_stmt: Stmt = syn::parse_quote! { use setup::describe; };
-            // use_stmt.to_tokens(tokens);
+            if !contains_setup(&self.items) {
+                Setup::default().to_tokens(tokens);
+            }
             tokens.append_all(&self.items);
         });
     }

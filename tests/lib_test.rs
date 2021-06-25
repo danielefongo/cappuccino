@@ -46,21 +46,37 @@ setup::tests!({
         assert_eq!(a, 42);
     }
 
-    when "using super setup" {
-        use super::setup;
-
-        it "should pass" |a: i32| {
+    when "has no inner setup" {
+        it "should use super setup" |a: i32| {
             assert_eq!(a, 42);
         }
     }
 
-    when "using inner setup" {
+    when "has have a nested when" {
+        when "has no inner setup" {
+            it "should use super setup" |a: i32| {
+                assert_eq!(a, 42);
+            }
+        }
+
+        when "has inner setup" {
+            before i32 {
+                24
+            }
+
+            it "should use super setup" |a: i32| {
+                assert_eq!(a, 24);
+            }
+        }
+    }
+
+    when "has inner setup" {
         before i32 {
-            42
+            24
         }
 
         it "should pass" |a: i32| {
-            assert_eq!(a, 42);
+            assert_eq!(a, 24);
         }
     }
 

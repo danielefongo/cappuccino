@@ -2,6 +2,7 @@ use crate::stringed_box::StringedBlock;
 use quote::ToTokens;
 use quote::TokenStreamExt;
 use syn::parse::{Parse, ParseStream, Result};
+use syn::parse_quote;
 use syn::Type;
 use syn::{token, Block, Ident, Item, ItemFn, Stmt};
 
@@ -61,10 +62,18 @@ impl ToTokens for When {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let magic = self.block.clone();
 
+        let has_setup = contains_setup(&magic.items);
+
         token::Mod::default().to_tokens(tokens);
         magic.ident.to_tokens(tokens);
 
         &magic.brace_token.surround(tokens, |tokens| {
+            if !has_setup {
+                let use_stmt: Stmt = parse_quote!(
+                    use super::before;
+                );
+                use_stmt.to_tokens(tokens);
+            }
             tokens.append_all(&magic.items);
         });
     }
@@ -96,7 +105,7 @@ impl ToTokens for It {
         let test_body: Block = if let Some(_) = arg {
             syn::parse_quote!({
               let runner = |#arg| #block;
-              runner(setup())
+              runner(before())
             })
         } else {
             syn::parse_quote!(#block)
@@ -119,6 +128,14 @@ pub struct Setup {
     pub output: Box<Type>,
 }
 
+impl Setup {
+    pub fn default() -> Self {
+        let block = parse_quote!({});
+        let output = parse_quote!(());
+        Setup { block, output }
+    }
+}
+
 impl Parse for Setup {
     fn parse(input: ParseStream) -> Result<Self> {
         let _: Ident = input.parse()?;
@@ -137,10 +154,17 @@ impl ToTokens for Setup {
         let block = &self.block.clone();
 
         let my_setup: ItemFn = syn::parse_quote! {
-            fn setup() -> #output {
+            fn before() -> #output {
                 #block
             }
         };
         my_setup.to_tokens(tokens);
     }
+}
+
+pub fn contains_setup(items: &Vec<Case>) -> bool {
+    items.clone().into_iter().any(|case| match case {
+        Case::Setup(_) => true,
+        _ => false,
+    })
 }
