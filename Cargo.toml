@@ -1,5 +1,5 @@
 [package]
-name = "setup"
+name = "cappuccino"
 version = "0.1.0"
 authors = ["danielefongo <danielefongo@gmail.com>"]
 edition = "2018"

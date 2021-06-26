@@ -8,7 +8,6 @@ use crate::case::contains_setup;
 use crate::case::Case;
 use crate::case::Setup;
 use crate::utils::DynamicBlock;
-
 pub struct Test(DynamicBlock<Case>);
 
 impl Parse for Test {

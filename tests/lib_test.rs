@@ -1,4 +1,4 @@
-setup::tests!({
+cappuccino::tests!({
     it "should pass" {
         assert_eq!(1, 1);
     }
