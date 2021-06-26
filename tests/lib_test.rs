@@ -91,3 +91,9 @@ cappuccino::tests!({
         }
     }
 });
+
+cappuccino::tests!("custom root" {
+    it "should pass" {
+        assert_eq!(1,1);
+    }
+});
