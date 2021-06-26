@@ -61,8 +61,7 @@ impl Parse for Case {
                 _ => Err(lookahead.error()),
             }
         } else {
-            let item: Item = input.parse()?;
-            Ok(Case::Item(item))
+            Ok(Case::Item(input.parse()?))
         }
     }
 }
@@ -85,6 +84,17 @@ pub struct When {
     pub setup: Option<Setup>,
 }
 
+impl When {
+    pub fn new(ident: StringedIdent, block: DynamicBlock<Case>) -> Self {
+        let setup = block.items.get_setup();
+        When {
+            ident,
+            block,
+            setup,
+        }
+    }
+}
+
 impl Setuppable for When {
     fn add_setup(&mut self, setup: &Option<Setup>) {
         if let None = self.setup {
@@ -100,13 +110,8 @@ impl Parse for When {
     fn parse(input: ParseStream) -> Result<Self> {
         let ident = input.parse()?;
         let block: DynamicBlock<Case> = input.parse()?;
-        let setup = block.items.get_setup();
 
-        Ok(When {
-            ident,
-            block,
-            setup,
-        })
+        Ok(When::new(ident, block))
     }
 }
 

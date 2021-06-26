@@ -36,23 +36,36 @@ impl<T: Parse> Parse for DynamicBlock<T> {
 }
 
 #[derive(Clone)]
-pub struct StringedIdent {
-    pub kind: Ident,
-    pub ident: Ident,
+pub struct StringedIdent(Ident);
+
+impl StringedIdent {
+    pub fn from(ident_string: &str) -> Self {
+        StringedIdent(Ident::new(
+            &ident_string.replace(" ", "_"),
+            Span::call_site(),
+        ))
+    }
 }
 
 impl Parse for StringedIdent {
     fn parse(input: ParseStream) -> Result<Self> {
-        let kind: Ident = input.parse()?;
-        let description: LitStr = input.parse()?;
-        let ident_string = kind.to_string() + "_" + &description.value().replace(" ", "_");
-        let ident = Ident::new(&ident_string, Span::call_site());
-        Ok(StringedIdent { kind, ident })
+        let lookahead = input.lookahead1();
+        let ident_string = if lookahead.peek(Ident) {
+            let kind: Ident = input.parse()?;
+            let description: LitStr = input.parse()?;
+            kind.to_string() + "_" + &description.value()
+        } else if lookahead.peek(LitStr) {
+            let description: LitStr = input.parse()?;
+            description.value()
+        } else {
+            return Err(lookahead.error());
+        };
+        Ok(StringedIdent::from(&ident_string))
     }
 }
 
 impl ToTokens for StringedIdent {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        &self.ident.to_tokens(tokens);
+        &self.0.to_tokens(tokens);
     }
 }
