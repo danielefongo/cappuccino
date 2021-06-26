@@ -38,44 +38,45 @@ cappuccino::tests!({
         }
     }
 
-    before i32 {
-        42
+    before {
+        let a = 42;
+        let b = 42;
     }
 
-    it "should pass using setup" |a: i32| {
-        assert_eq!(a, 42);
+    it "should pass using setup" {
+        assert_eq!(a, b);
     }
 
     when "has no inner setup" {
-        it "should use super setup" |a: i32| {
+        it "should use super setup" {
             assert_eq!(a, 42);
         }
     }
 
     when "has have a nested when" {
         when "has no inner setup" {
-            it "should use super setup" |a: i32| {
+            it "should use super setup" {
                 assert_eq!(a, 42);
             }
         }
 
         when "has inner setup" {
-            before i32 {
-                24
+            before {
+                let a = 24;
             }
 
-            it "should use inner setup" |a: i32| {
+            it "should use inner setup" {
                 assert_eq!(a, 24);
             }
         }
     }
 
     when "has inner setup" {
-        before i32 {
-            24
+        before {
+            let a = 24;
         }
 
-        it "should pass" |a: i32| {
+        it "should pass" {
             assert_eq!(a, 24);
         }
     }

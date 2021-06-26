@@ -60,23 +60,23 @@ when "condition" {
 ### before
 The keyword `before` is used to create a setup method within `tests!` or `when` context:
 ```rust
-before (i32, i32) {
-  (42, 42)
+before {
+  let (a,b) = (42, 42);
 }
 
-it "should something" |(a, b): (i32, i32)| {
+it "should something" {
   assert_eq!(a, b);
 }
 ```
 
 before is automatically propagated inside nested when if no inner `before` is defined
 ```rust
-before (i32, i32) {
-  (42, 42)
+before {
+  let (a,b) = (42, 42);
 }
 
 when "condition" {
-  it "should something" |(a, b): (i32, i32)| {
+  it "should something" {
     assert_eq!(a, b);
   }
 }

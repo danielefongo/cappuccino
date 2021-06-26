@@ -1,11 +1,13 @@
-use crate::utils::{DynamicBlock, OptionalArg, StringedIdent};
-use quote::ToTokens;
-use quote::TokenStreamExt;
+use crate::utils::{DynamicBlock, StringedIdent};
+use quote::{ToTokens, TokenStreamExt};
 use syn::parse::{Parse, ParseStream, Result};
-use syn::parse_quote;
 use syn::token::Mod;
-use syn::Type;
 use syn::{Block, Ident, Item, ItemFn, Stmt};
+
+pub trait Setuppable {
+    fn add_setup(&mut self, setup: &Option<Setup>);
+    fn get_setup(&self) -> Option<Setup>;
+}
 
 #[derive(Clone)]
 pub enum Case {
@@ -13,6 +15,35 @@ pub enum Case {
     When(When),
     Setup(Setup),
     Item(Item),
+}
+
+impl Setuppable for Vec<Case> {
+    fn add_setup(&mut self, setup: &Option<Setup>) {
+        self.iter_mut().for_each(|case| case.add_setup(setup));
+    }
+    fn get_setup(&self) -> Option<Setup> {
+        self.into_iter().find_map(|case| match case {
+            Case::Setup(a) => Some(a.clone()),
+            _ => None,
+        })
+    }
+}
+
+impl Setuppable for Case {
+    fn add_setup(&mut self, setup: &Option<Setup>) {
+        match self {
+            Case::It(it) => it.add_setup(setup),
+            Case::When(when) => when.add_setup(setup),
+            _ => (),
+        }
+    }
+    fn get_setup(&self) -> Option<Setup> {
+        match self {
+            Case::It(it) => it.get_setup(),
+            Case::When(when) => when.get_setup(),
+            _ => None,
+        }
+    }
 }
 
 impl Parse for Case {
@@ -41,8 +72,8 @@ impl ToTokens for Case {
         match &self {
             Case::It(it) => it.to_tokens(tokens),
             Case::When(when) => when.to_tokens(tokens),
-            Case::Setup(fun) => fun.to_tokens(tokens),
             Case::Item(item) => item.to_tokens(tokens),
+            Case::Setup(_) => (),
         }
     }
 }
@@ -51,32 +82,44 @@ impl ToTokens for Case {
 pub struct When {
     pub block: DynamicBlock<Case>,
     pub ident: StringedIdent,
+    pub setup: Option<Setup>,
+}
+
+impl Setuppable for When {
+    fn add_setup(&mut self, setup: &Option<Setup>) {
+        if let None = self.setup {
+            self.setup = setup.clone();
+        }
+    }
+    fn get_setup(&self) -> Option<Setup> {
+        self.setup.clone()
+    }
 }
 
 impl Parse for When {
     fn parse(input: ParseStream) -> Result<Self> {
         let ident = input.parse()?;
-        let block = input.parse()?;
-        Ok(When { ident, block })
+        let block: DynamicBlock<Case> = input.parse()?;
+        let setup = block.items.get_setup();
+
+        Ok(When {
+            ident,
+            block,
+            setup,
+        })
     }
 }
 
 impl ToTokens for When {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let block = &self.block;
+        let mut block = self.block.clone();
+        block.items.add_setup(&self.setup);
 
         Mod::default().to_tokens(tokens);
         self.ident.to_tokens(tokens);
-
-        &block.brace_token.surround(tokens, |tokens| {
-            if !contains_setup(&block.items) {
-                let use_stmt: Stmt = parse_quote!(
-                    use super::before;
-                );
-                use_stmt.to_tokens(tokens);
-            }
-            tokens.append_all(&block.items);
-        });
+        &block
+            .brace_token
+            .surround(tokens, |tokens| tokens.append_all(&block.items));
     }
 }
 
@@ -84,42 +127,49 @@ impl ToTokens for When {
 pub struct It {
     pub ident: StringedIdent,
     pub block: DynamicBlock<Stmt>,
-    pub arg: OptionalArg,
+    pub setup: Option<Setup>,
+}
+
+impl Setuppable for It {
+    fn add_setup(&mut self, setup: &Option<Setup>) {
+        self.setup = setup.clone();
+    }
+    fn get_setup(&self) -> Option<Setup> {
+        self.setup.clone()
+    }
 }
 
 impl Parse for It {
     fn parse(input: ParseStream) -> Result<Self> {
         let ident = input.parse()?;
-        let arg = input.parse()?;
         let block = input.parse()?;
-        Ok(It { ident, arg, block })
+        Ok(It {
+            ident,
+            block,
+            setup: None,
+        })
     }
 }
 
 impl ToTokens for It {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let block = &self.block;
+        let mut block = self.block.clone();
+
+        if let Some(setup) = &self.setup {
+            block.append_on_start(setup.block.stmts.clone());
+        };
 
         let ident = self.ident.clone();
-        let arg = self.arg.clone();
         let block = Block {
             brace_token: block.brace_token,
             stmts: block.items.clone(),
         };
 
-        let test_body: Block = if arg.is_set() {
-            syn::parse_quote!({
-              let runner = |#arg| #block;
-              runner(before())
-            })
-        } else {
-            syn::parse_quote!(#block)
-        };
-
         let test: ItemFn = syn::parse_quote! {
             #[test]
             fn #ident() {
-                #test_body
+                #[allow(unused)]
+                #block;
             }
         };
         test.to_tokens(tokens);
@@ -130,46 +180,12 @@ impl ToTokens for It {
 
 pub struct Setup {
     pub block: Block,
-    pub output: Box<Type>,
-}
-
-impl Setup {
-    pub fn default() -> Self {
-        let block = parse_quote!({});
-        let output = parse_quote!(());
-        Setup { block, output }
-    }
 }
 
 impl Parse for Setup {
     fn parse(input: ParseStream) -> Result<Self> {
         let _: Ident = input.parse()?;
-        let output: Type = input.parse()?;
         let block: Block = input.parse()?;
-        Ok(Setup {
-            output: Box::new(output),
-            block,
-        })
+        Ok(Setup { block })
     }
-}
-
-impl ToTokens for Setup {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let output = &self.output.clone();
-        let block = &self.block.clone();
-
-        let my_setup: ItemFn = syn::parse_quote! {
-            fn before() -> #output {
-                #block
-            }
-        };
-        my_setup.to_tokens(tokens);
-    }
-}
-
-pub fn contains_setup(items: &Vec<Case>) -> bool {
-    items.clone().into_iter().any(|case| match case {
-        Case::Setup(_) => true,
-        _ => false,
-    })
 }
