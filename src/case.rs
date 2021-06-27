@@ -1,8 +1,8 @@
 use crate::utils::{DynamicBlock, StringedIdent};
-use quote::{ToTokens, TokenStreamExt};
+use quote::ToTokens;
 use syn::parse::{Parse, ParseStream, Result};
 use syn::token::Mod;
-use syn::{Block, Ident, Item, ItemFn, Stmt};
+use syn::{Attribute, Block, Ident, Item, Signature, Stmt};
 
 pub trait Setuppable {
     fn add_before(&mut self, before: &Option<Before>);
@@ -122,9 +122,7 @@ impl ToTokens for When {
 
         Mod::default().to_tokens(tokens);
         self.ident.to_tokens(tokens);
-        &block
-            .brace_token
-            .surround(tokens, |tokens| tokens.append_all(&block.items));
+        block.to_tokens(tokens);
     }
 }
 
@@ -165,19 +163,15 @@ impl ToTokens for It {
         };
 
         let ident = self.ident.clone();
-        let block = Block {
-            brace_token: block.brace_token,
-            stmts: block.items.clone(),
-        };
 
-        let test: ItemFn = syn::parse_quote! {
-            #[test]
-            fn #ident() {
-                #[allow(unused)]
-                #block;
-            }
-        };
-        test.to_tokens(tokens);
+        let test_attr: Attribute = syn::parse_quote!(#[test]);
+        let allow_unused_attr: Attribute = syn::parse_quote!(#[allow(unused)]);
+        let signature: Signature = syn::parse_quote!(fn #ident());
+
+        test_attr.to_tokens(tokens);
+        allow_unused_attr.to_tokens(tokens);
+        signature.to_tokens(tokens);
+        block.to_tokens(tokens);
     }
 }
 

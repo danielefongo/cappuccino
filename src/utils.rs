@@ -1,16 +1,16 @@
 use proc_macro2::Span;
-use quote::ToTokens;
+use quote::{ToTokens, TokenStreamExt};
 use syn::parse::{Parse, ParseStream, Result};
 use syn::token::Brace;
 use syn::{braced, Ident, LitStr};
 
 #[derive(Clone)]
-pub struct DynamicBlock<T: Parse> {
+pub struct DynamicBlock<T: Parse + ToTokens> {
     pub brace_token: Brace,
     pub items: Vec<T>,
 }
 
-impl<T: Parse> DynamicBlock<T> {
+impl<T: Parse + ToTokens> DynamicBlock<T> {
     pub fn append_on_start(&mut self, vect: Vec<T>) {
         vect.into_iter().rev().for_each(|item| {
             self.items.insert(0, item);
@@ -18,7 +18,7 @@ impl<T: Parse> DynamicBlock<T> {
     }
 }
 
-impl<T: Parse> Parse for DynamicBlock<T> {
+impl<T: Parse + ToTokens> Parse for DynamicBlock<T> {
     fn parse(input: ParseStream) -> Result<Self> {
         let lookahead = input.lookahead1();
         if lookahead.peek(Brace) {
@@ -32,6 +32,14 @@ impl<T: Parse> Parse for DynamicBlock<T> {
         } else {
             Err(lookahead.error())
         }
+    }
+}
+
+impl<T: Parse + ToTokens> ToTokens for DynamicBlock<T> {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        &self
+            .brace_token
+            .surround(tokens, |tokens| tokens.append_all(&self.items));
     }
 }
 
