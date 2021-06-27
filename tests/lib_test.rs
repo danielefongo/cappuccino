@@ -43,35 +43,35 @@ cappuccino::tests!({
         let b = 42;
     }
 
-    it "should pass using setup" {
+    it "should pass using before" {
         assert_eq!(a, b);
     }
 
-    when "has no inner setup" {
-        it "should use super setup" {
+    when "has no inner before" {
+        it "should use super before" {
             assert_eq!(a, 42);
         }
     }
 
     when "has have a nested when" {
-        when "has no inner setup" {
-            it "should use super setup" {
+        when "has no inner before" {
+            it "should use super before" {
                 assert_eq!(a, 42);
             }
         }
 
-        when "has inner setup" {
+        when "has inner before" {
             before {
                 let a = 24;
             }
 
-            it "should use inner setup" {
+            it "should use inner before" {
                 assert_eq!(a, 24);
             }
         }
     }
 
-    when "has inner setup" {
+    when "has inner before" {
         before {
             let a = 24;
         }

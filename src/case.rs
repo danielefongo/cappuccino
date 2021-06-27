@@ -5,42 +5,42 @@ use syn::token::Mod;
 use syn::{Block, Ident, Item, ItemFn, Stmt};
 
 pub trait Setuppable {
-    fn add_setup(&mut self, setup: &Option<Setup>);
-    fn get_setup(&self) -> Option<Setup>;
+    fn add_before(&mut self, before: &Option<Before>);
+    fn get_before(&self) -> Option<Before>;
 }
 
 #[derive(Clone)]
 pub enum Case {
     It(It),
     When(When),
-    Setup(Setup),
+    Before(Before),
     Item(Item),
 }
 
 impl Setuppable for Vec<Case> {
-    fn add_setup(&mut self, setup: &Option<Setup>) {
-        self.iter_mut().for_each(|case| case.add_setup(setup));
+    fn add_before(&mut self, before: &Option<Before>) {
+        self.iter_mut().for_each(|case| case.add_before(before));
     }
-    fn get_setup(&self) -> Option<Setup> {
+    fn get_before(&self) -> Option<Before> {
         self.into_iter().find_map(|case| match case {
-            Case::Setup(a) => Some(a.clone()),
+            Case::Before(a) => Some(a.clone()),
             _ => None,
         })
     }
 }
 
 impl Setuppable for Case {
-    fn add_setup(&mut self, setup: &Option<Setup>) {
+    fn add_before(&mut self, before: &Option<Before>) {
         match self {
-            Case::It(it) => it.add_setup(setup),
-            Case::When(when) => when.add_setup(setup),
+            Case::It(it) => it.add_before(before),
+            Case::When(when) => when.add_before(before),
             _ => (),
         }
     }
-    fn get_setup(&self) -> Option<Setup> {
+    fn get_before(&self) -> Option<Before> {
         match self {
-            Case::It(it) => it.get_setup(),
-            Case::When(when) => when.get_setup(),
+            Case::It(it) => it.get_before(),
+            Case::When(when) => when.get_before(),
             _ => None,
         }
     }
@@ -57,7 +57,7 @@ impl Parse for Case {
             match kind.to_string().as_str() {
                 "it" => Ok(Case::It(It::parse(input)?)),
                 "when" => Ok(Case::When(When::parse(input)?)),
-                "before" => Ok(Case::Setup(Setup::parse(input)?)),
+                "before" => Ok(Case::Before(Before::parse(input)?)),
                 _ => Err(lookahead.error()),
             }
         } else {
@@ -72,7 +72,7 @@ impl ToTokens for Case {
             Case::It(it) => it.to_tokens(tokens),
             Case::When(when) => when.to_tokens(tokens),
             Case::Item(item) => item.to_tokens(tokens),
-            Case::Setup(_) => (),
+            Case::Before(_) => (),
         }
     }
 }
@@ -81,28 +81,28 @@ impl ToTokens for Case {
 pub struct When {
     pub block: DynamicBlock<Case>,
     pub ident: StringedIdent,
-    pub setup: Option<Setup>,
+    pub before: Option<Before>,
 }
 
 impl When {
     pub fn new(ident: StringedIdent, block: DynamicBlock<Case>) -> Self {
-        let setup = block.items.get_setup();
+        let before = block.items.get_before();
         When {
             ident,
             block,
-            setup,
+            before,
         }
     }
 }
 
 impl Setuppable for When {
-    fn add_setup(&mut self, setup: &Option<Setup>) {
-        if let None = self.setup {
-            self.setup = setup.clone();
+    fn add_before(&mut self, before: &Option<Before>) {
+        if let None = self.before {
+            self.before = before.clone();
         }
     }
-    fn get_setup(&self) -> Option<Setup> {
-        self.setup.clone()
+    fn get_before(&self) -> Option<Before> {
+        self.before.clone()
     }
 }
 
@@ -118,7 +118,7 @@ impl Parse for When {
 impl ToTokens for When {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let mut block = self.block.clone();
-        block.items.add_setup(&self.setup);
+        block.items.add_before(&self.before);
 
         Mod::default().to_tokens(tokens);
         self.ident.to_tokens(tokens);
@@ -132,15 +132,15 @@ impl ToTokens for When {
 pub struct It {
     pub ident: StringedIdent,
     pub block: DynamicBlock<Stmt>,
-    pub setup: Option<Setup>,
+    pub before: Option<Before>,
 }
 
 impl Setuppable for It {
-    fn add_setup(&mut self, setup: &Option<Setup>) {
-        self.setup = setup.clone();
+    fn add_before(&mut self, before: &Option<Before>) {
+        self.before = before.clone();
     }
-    fn get_setup(&self) -> Option<Setup> {
-        self.setup.clone()
+    fn get_before(&self) -> Option<Before> {
+        self.before.clone()
     }
 }
 
@@ -151,7 +151,7 @@ impl Parse for It {
         Ok(It {
             ident,
             block,
-            setup: None,
+            before: None,
         })
     }
 }
@@ -160,8 +160,8 @@ impl ToTokens for It {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let mut block = self.block.clone();
 
-        if let Some(setup) = &self.setup {
-            block.append_on_start(setup.block.stmts.clone());
+        if let Some(before) = &self.before {
+            block.append_on_start(before.block.stmts.clone());
         };
 
         let ident = self.ident.clone();
@@ -183,14 +183,14 @@ impl ToTokens for It {
 
 #[derive(Clone)]
 
-pub struct Setup {
+pub struct Before {
     pub block: Block,
 }
 
-impl Parse for Setup {
+impl Parse for Before {
     fn parse(input: ParseStream) -> Result<Self> {
         let _: Ident = input.parse()?;
         let block: Block = input.parse()?;
-        Ok(Setup { block })
+        Ok(Before { block })
     }
 }
