@@ -1,5 +1,5 @@
-use crate::case::{Case, When};
-use crate::utils::{DynamicBlock, StringedIdent};
+use crate::case::When;
+use crate::utils::{CasesBlock, StringedIdent};
 use quote::ToTokens;
 use syn::parse::{Parse, ParseStream, Result};
 use syn::LitStr;
@@ -15,7 +15,7 @@ impl Parse for Test {
         } else {
             StringedIdent::from("tests")
         };
-        let block: DynamicBlock<Case> = input.parse()?;
+        let block: CasesBlock = input.parse()?;
         Ok(Test(When::new(ident, block)))
     }
 }

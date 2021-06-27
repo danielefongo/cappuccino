@@ -3,6 +3,10 @@ cappuccino::tests!({
         assert_eq!(1, 1);
     }
 
+    it "should pass with final void expression" {
+        ()
+    }
+
     when "empty" {}
 
     when "has space in description" {}

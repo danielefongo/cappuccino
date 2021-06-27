@@ -1,8 +1,8 @@
-use crate::utils::{DynamicBlock, StringedIdent};
+use crate::utils::{CasesBlock, StatementsBlock, StringedIdent};
 use quote::ToTokens;
 use syn::parse::{Parse, ParseStream, Result};
 use syn::token::Mod;
-use syn::{Attribute, Block, Ident, Item, Signature, Stmt};
+use syn::{Attribute, Block, Ident, Item, Signature};
 
 pub trait Setuppable {
     fn add_before(&mut self, before: &Option<Before>);
@@ -79,13 +79,13 @@ impl ToTokens for Case {
 
 #[derive(Clone)]
 pub struct When {
-    pub block: DynamicBlock<Case>,
     pub ident: StringedIdent,
+    pub block: CasesBlock,
     pub before: Option<Before>,
 }
 
 impl When {
-    pub fn new(ident: StringedIdent, block: DynamicBlock<Case>) -> Self {
+    pub fn new(ident: StringedIdent, block: CasesBlock) -> Self {
         let before = block.items.get_before();
         When {
             ident,
@@ -109,8 +109,7 @@ impl Setuppable for When {
 impl Parse for When {
     fn parse(input: ParseStream) -> Result<Self> {
         let ident = input.parse()?;
-        let block: DynamicBlock<Case> = input.parse()?;
-
+        let block: CasesBlock = input.parse()?;
         Ok(When::new(ident, block))
     }
 }
@@ -129,7 +128,7 @@ impl ToTokens for When {
 #[derive(Clone)]
 pub struct It {
     pub ident: StringedIdent,
-    pub block: DynamicBlock<Stmt>,
+    pub block: StatementsBlock,
     pub before: Option<Before>,
 }
 
@@ -159,7 +158,7 @@ impl ToTokens for It {
         let mut block = self.block.clone();
 
         if let Some(before) = &self.before {
-            block.append_on_start(before.block.stmts.clone());
+            block.add_before(before.block.stmts.clone())
         };
 
         let ident = self.ident.clone();

@@ -2,23 +2,17 @@ use proc_macro2::Span;
 use quote::{ToTokens, TokenStreamExt};
 use syn::parse::{Parse, ParseStream, Result};
 use syn::token::Brace;
-use syn::{braced, Ident, LitStr};
+use syn::{braced, Block, Ident, LitStr, Stmt};
+
+use crate::case::Case;
 
 #[derive(Clone)]
-pub struct DynamicBlock<T: Parse + ToTokens> {
+pub struct CasesBlock {
     pub brace_token: Brace,
-    pub items: Vec<T>,
+    pub items: Vec<Case>,
 }
 
-impl<T: Parse + ToTokens> DynamicBlock<T> {
-    pub fn append_on_start(&mut self, vect: Vec<T>) {
-        vect.into_iter().rev().for_each(|item| {
-            self.items.insert(0, item);
-        });
-    }
-}
-
-impl<T: Parse + ToTokens> Parse for DynamicBlock<T> {
+impl Parse for CasesBlock {
     fn parse(input: ParseStream) -> Result<Self> {
         let lookahead = input.lookahead1();
         if lookahead.peek(Brace) {
@@ -26,20 +20,44 @@ impl<T: Parse + ToTokens> Parse for DynamicBlock<T> {
             let brace_token = braced!(content in input);
             let mut items = Vec::new();
             while !content.is_empty() {
-                items.push(content.parse()?);
+                let item: Case = content.parse()?;
+                items.push(item);
             }
-            Ok(DynamicBlock { brace_token, items })
+            Ok(CasesBlock { brace_token, items })
         } else {
             Err(lookahead.error())
         }
     }
 }
 
-impl<T: Parse + ToTokens> ToTokens for DynamicBlock<T> {
+impl ToTokens for CasesBlock {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         &self
             .brace_token
             .surround(tokens, |tokens| tokens.append_all(&self.items));
+    }
+}
+
+#[derive(Clone)]
+pub struct StatementsBlock(Block);
+
+impl StatementsBlock {
+    pub fn add_before(&mut self, vect: Vec<Stmt>) {
+        vect.into_iter().rev().for_each(|item| {
+            self.0.stmts.insert(0, item);
+        });
+    }
+}
+
+impl Parse for StatementsBlock {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(StatementsBlock(input.parse()?))
+    }
+}
+
+impl ToTokens for StatementsBlock {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        &self.0.to_tokens(tokens);
     }
 }
 
