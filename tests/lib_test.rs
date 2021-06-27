@@ -7,6 +7,11 @@ cappuccino::tests!({
         ()
     }
 
+    it "should pass with result" -> Result<(), String> {
+        assert_eq!(1, 1);
+        Ok(())
+    }
+
     when "empty" {}
 
     when "has space in description" {}

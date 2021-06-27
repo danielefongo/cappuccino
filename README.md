@@ -21,6 +21,15 @@ it "should something" {
 }
 ```
 
+You can return a result:
+```rust
+it "should something" -> Result<(), String> {
+    assert_eq!(1, 1);
+    Ok(())
+}
+```
+
+
 ### when
 The keyword `it` is used to describe a scenario:
 ```rust

@@ -1,8 +1,8 @@
 use crate::utils::{CasesBlock, StatementsBlock, StringedIdent};
 use quote::ToTokens;
 use syn::parse::{Parse, ParseStream, Result};
-use syn::token::Mod;
-use syn::{Attribute, Block, Ident, Item, Signature};
+use syn::token::{Mod, RArrow};
+use syn::{Attribute, Block, Ident, Item, ReturnType, Signature};
 
 pub trait Setuppable {
     fn add_before(&mut self, before: &Option<Before>);
@@ -130,6 +130,7 @@ pub struct It {
     pub ident: StringedIdent,
     pub block: StatementsBlock,
     pub before: Option<Before>,
+    pub output: Option<ReturnType>,
 }
 
 impl Setuppable for It {
@@ -144,10 +145,18 @@ impl Setuppable for It {
 impl Parse for It {
     fn parse(input: ParseStream) -> Result<Self> {
         let ident = input.parse()?;
+        let lookahead = input.lookahead1();
+        let output: Option<ReturnType> = if lookahead.peek(RArrow) {
+            Some(input.parse()?)
+        } else {
+            None
+        };
         let block = input.parse()?;
+
         Ok(It {
             ident,
             block,
+            output,
             before: None,
         })
     }
@@ -162,10 +171,11 @@ impl ToTokens for It {
         };
 
         let ident = self.ident.clone();
+        let output = self.output.clone();
 
         let test_attr: Attribute = syn::parse_quote!(#[test]);
         let allow_unused_attr: Attribute = syn::parse_quote!(#[allow(unused)]);
-        let signature: Signature = syn::parse_quote!(fn #ident());
+        let signature: Signature = syn::parse_quote!(fn #ident() #output);
 
         test_attr.to_tokens(tokens);
         allow_unused_attr.to_tokens(tokens);
