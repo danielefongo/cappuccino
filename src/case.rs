@@ -1,8 +1,8 @@
-use crate::utils::{CasesBlock, StatementsBlock, StringedIdent};
+use crate::utils::{CasesBlock, OptionalReturnType, StatementsBlock, StringedIdent};
 use quote::ToTokens;
 use syn::parse::{Parse, ParseStream, Result};
-use syn::token::{Mod, RArrow};
-use syn::{Attribute, Block, Ident, Item, ReturnType, Signature};
+use syn::token::Mod;
+use syn::{Attribute, Block, Ident, Item, Signature};
 
 pub trait Setuppable {
     fn add_before(&mut self, before: &Option<Before>);
@@ -130,7 +130,7 @@ pub struct It {
     pub ident: StringedIdent,
     pub block: StatementsBlock,
     pub before: Option<Before>,
-    pub output: Option<ReturnType>,
+    pub output: OptionalReturnType,
 }
 
 impl Setuppable for It {
@@ -145,12 +145,7 @@ impl Setuppable for It {
 impl Parse for It {
     fn parse(input: ParseStream) -> Result<Self> {
         let ident = input.parse()?;
-        let lookahead = input.lookahead1();
-        let output: Option<ReturnType> = if lookahead.peek(RArrow) {
-            Some(input.parse()?)
-        } else {
-            None
-        };
+        let output = input.parse()?;
         let block = input.parse()?;
 
         Ok(It {

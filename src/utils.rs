@@ -1,8 +1,8 @@
 use proc_macro2::Span;
 use quote::{ToTokens, TokenStreamExt};
 use syn::parse::{Parse, ParseStream, Result};
-use syn::token::Brace;
-use syn::{braced, Block, Ident, LitStr, Stmt};
+use syn::token::{Brace, RArrow};
+use syn::{braced, Block, Ident, LitStr, ReturnType, Stmt};
 
 use crate::case::Case;
 
@@ -93,5 +93,27 @@ impl Parse for StringedIdent {
 impl ToTokens for StringedIdent {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         &self.0.to_tokens(tokens);
+    }
+}
+
+#[derive(Clone)]
+pub struct OptionalReturnType(Option<ReturnType>);
+
+impl Parse for OptionalReturnType {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let lookahead = input.lookahead1();
+        if lookahead.peek(RArrow) {
+            Ok(OptionalReturnType(Some(input.parse()?)))
+        } else {
+            Ok(OptionalReturnType(None))
+        }
+    }
+}
+
+impl ToTokens for OptionalReturnType {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        if let Some(return_type) = &self.0 {
+            return_type.to_tokens(tokens);
+        }
     }
 }
