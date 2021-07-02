@@ -118,6 +118,12 @@ impl Parse for When {
 impl ToTokens for When {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let mut block = self.block.clone();
+        block.items.insert(
+            0,
+            syn::parse_quote!(
+                use super::*;
+            ),
+        );
         block.items.add_before(&self.before);
 
         Mod::default().to_tokens(tokens);

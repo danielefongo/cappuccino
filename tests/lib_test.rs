@@ -97,6 +97,22 @@ cappuccino::tests!({
             42
         }
     }
+
+    when using_external_utility_functions() {
+        it should_pass() {
+            assert_eq!(the_answer(), 42);
+        }
+
+        when even_inside_another_when() {
+            it should_pass() {
+                assert_eq!(the_answer(), 42);
+            }
+        }
+    }
+
+    fn the_answer() -> i32 {
+        42
+    }
 });
 
 #[cfg(feature = "async")]

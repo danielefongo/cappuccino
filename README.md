@@ -76,6 +76,18 @@ when condition() {
 }
 ```
 
+**NB**: scenarios automatically import outer imports and functions:
+```rust
+fn the_answer() -> i32 {
+  42
+}
+when condition() {
+  it should_something() {
+    assert_eq!(the_answer(), 42);
+  }
+}
+```
+
 #### Nested scenarios
 ```rust
 when condition() {
