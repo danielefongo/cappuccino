@@ -6,6 +6,10 @@ use syn::{braced, Block, Ident, LitStr, ReturnType, Stmt};
 
 use crate::case::Case;
 
+pub fn to_tokens<T: ToTokens>(tokens: &mut proc_macro2::TokenStream, data: T) {
+    data.to_tokens(tokens);
+}
+
 #[derive(Clone)]
 pub struct CasesBlock {
     pub brace_token: Brace,
@@ -57,7 +61,7 @@ impl Parse for StatementsBlock {
 
 impl ToTokens for StatementsBlock {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        &self.0.to_tokens(tokens);
+        self.0.to_tokens(tokens);
     }
 }
 

@@ -1,8 +1,14 @@
-use crate::utils::{CasesBlock, OptionalReturnType, StatementsBlock, StringedIdent};
+use crate::utils::{to_tokens, CasesBlock, OptionalReturnType, StatementsBlock, StringedIdent};
 use quote::ToTokens;
 use syn::parse::{Parse, ParseStream, Result};
-use syn::token::Mod;
-use syn::{Attribute, Block, Ident, Item, Signature};
+use syn::token::{Async, Mod};
+use syn::{Attribute, Block, Item, Signature, Token};
+
+mod case_ident {
+    syn::custom_keyword!(it);
+    syn::custom_keyword!(when);
+    syn::custom_keyword!(before);
+}
 
 pub trait Setuppable {
     fn add_before(&mut self, before: &Option<Before>);
@@ -48,18 +54,12 @@ impl Setuppable for Case {
 
 impl Parse for Case {
     fn parse(input: ParseStream) -> Result<Self> {
-        let forked_input = input.fork();
-        let lookahead = input.lookahead1();
-
-        if lookahead.peek(Ident) {
-            let kind: Ident = forked_input.parse()?;
-
-            match kind.to_string().as_str() {
-                "it" => Ok(Case::It(It::parse(input)?)),
-                "when" => Ok(Case::When(When::parse(input)?)),
-                "before" => Ok(Case::Before(Before::parse(input)?)),
-                _ => Err(lookahead.error()),
-            }
+        if input.peek(case_ident::when) {
+            Ok(Case::When(When::parse(input)?))
+        } else if input.peek(case_ident::it) {
+            Ok(Case::It(It::parse(input)?))
+        } else if input.peek(case_ident::before) {
+            Ok(Case::Before(Before::parse(input)?))
         } else {
             Ok(Case::Item(input.parse()?))
         }
@@ -108,6 +108,7 @@ impl Setuppable for When {
 
 impl Parse for When {
     fn parse(input: ParseStream) -> Result<Self> {
+        input.parse::<case_ident::when>()?;
         let ident = input.parse()?;
         let block: CasesBlock = input.parse()?;
         Ok(When::new(ident, block))
@@ -131,6 +132,8 @@ pub struct It {
     pub block: StatementsBlock,
     pub before: Option<Before>,
     pub output: OptionalReturnType,
+    #[cfg(feature = "async")]
+    pub async_token: Option<Token![async]>,
 }
 
 impl Setuppable for It {
@@ -144,11 +147,21 @@ impl Setuppable for It {
 
 impl Parse for It {
     fn parse(input: ParseStream) -> Result<Self> {
+        input.parse::<case_ident::it>()?;
         let ident = input.parse()?;
+        #[cfg(feature = "async")]
+        let async_token = {
+            if input.peek(Async) {
+                Some(input.parse::<Async>()?)
+            } else {
+                None
+            }
+        };
         let output = input.parse()?;
         let block = input.parse()?;
-
         Ok(It {
+            #[cfg(feature = "async")]
+            async_token,
             ident,
             block,
             output,
@@ -160,22 +173,20 @@ impl Parse for It {
 impl ToTokens for It {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let mut block = self.block.clone();
-
+        #[cfg(feature = "async")]
+        if let Some(_) = &self.async_token {
+            block = syn::parse_quote!({futures::executor::block_on(async #block)});
+        };
         if let Some(before) = &self.before {
             block.add_before(before.block.stmts.clone())
         };
-
         let ident = self.ident.clone();
         let output = self.output.clone();
 
-        let test_attr: Attribute = syn::parse_quote!(#[test]);
-        let allow_unused_attr: Attribute = syn::parse_quote!(#[allow(unused)]);
-        let signature: Signature = syn::parse_quote!(fn #ident() #output);
-
-        test_attr.to_tokens(tokens);
-        allow_unused_attr.to_tokens(tokens);
-        signature.to_tokens(tokens);
-        block.to_tokens(tokens);
+        to_tokens::<Attribute>(tokens, syn::parse_quote!(#[test]));
+        to_tokens::<Attribute>(tokens, syn::parse_quote!(#[allow(unused)]));
+        to_tokens::<Signature>(tokens, syn::parse_quote!(fn #ident() #output));
+        to_tokens(tokens, block);
     }
 }
 
@@ -187,7 +198,7 @@ pub struct Before {
 
 impl Parse for Before {
     fn parse(input: ParseStream) -> Result<Self> {
-        let _: Ident = input.parse()?;
+        input.parse::<case_ident::before>()?;
         let block: Block = input.parse()?;
         Ok(Before { block })
     }

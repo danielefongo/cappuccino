@@ -10,6 +10,10 @@ edition = "2018"
 syn = { version = "1.0", features = ["full"] }
 quote = "1.0"
 proc-macro2 = "1.0"
+futures = { version = "0.3.15", optional = true }
 
 [lib]
 proc-macro = true
+
+[features]
+async = ["futures"]

@@ -101,8 +101,25 @@ cappuccino::tests!({
     }
 });
 
-cappuccino::tests!("custom root" {
-    it "should pass" {
-        assert_eq!(1,1);
+#[cfg(feature = "async")]
+cappuccino::tests!("async_tests" {
+    use super::*;
+
+    before {
+        let real_answer = 42;
+    }
+
+    it "should pass" async {
+        assert_eq!(the_long_waited_answer().await, real_answer);
+    }
+
+    it "should pass and return result" async -> Result<(), String> {
+        assert_eq!(the_long_waited_answer().await, real_answer);
+        Ok(())
     }
 });
+
+async fn the_long_waited_answer() -> i32 {
+    // after seven and a half million years...
+    42
+}
