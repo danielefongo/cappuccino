@@ -1,5 +1,6 @@
 use proc_macro2::Span;
 use quote::{ToTokens, TokenStreamExt};
+use syn::group::parse_parens;
 use syn::parse::{Parse, ParseStream, Result};
 use syn::token::{Brace, RArrow};
 use syn::{braced, Block, Ident, LitStr, ReturnType, Stmt};
@@ -79,18 +80,15 @@ impl StringedIdent {
 
 impl Parse for StringedIdent {
     fn parse(input: ParseStream) -> Result<Self> {
-        let lookahead = input.lookahead1();
-        let ident_string = if lookahead.peek(Ident) {
-            let kind: Ident = input.parse()?;
+        if input.peek(LitStr) {
             let description: LitStr = input.parse()?;
-            kind.to_string() + "_" + &description.value()
-        } else if lookahead.peek(LitStr) {
-            let description: LitStr = input.parse()?;
-            description.value()
+            Ok(StringedIdent::from(&description.value()))
         } else {
-            return Err(lookahead.error());
-        };
-        Ok(StringedIdent::from(&ident_string))
+            let ident = input.parse()?;
+            let _ = parse_parens(input)?;
+
+            Ok(StringedIdent(ident))
+        }
     }
 }
 

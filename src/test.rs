@@ -2,16 +2,12 @@ use crate::case::When;
 use crate::utils::{CasesBlock, StringedIdent};
 use quote::ToTokens;
 use syn::parse::{Parse, ParseStream, Result};
-use syn::LitStr;
 pub struct Test(When);
 
 impl Parse for Test {
     fn parse(input: ParseStream) -> Result<Self> {
-        let lookahead = input.lookahead1();
-
-        let ident = if lookahead.peek(LitStr) {
-            let tests_ident: LitStr = input.parse()?;
-            StringedIdent::from(&tests_ident.value())
+        let ident = if let Ok(_) = input.fork().parse::<StringedIdent>() {
+            input.parse::<StringedIdent>()?
         } else {
             StringedIdent::from("tests")
         };
